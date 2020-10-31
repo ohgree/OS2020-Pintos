@@ -107,7 +107,6 @@ start_process (void *file_name_)
     int
 process_wait (tid_t child_tid UNUSED) 
 {
-    while(1);
     return -1;
 }
 
@@ -246,7 +245,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
     /* Open executable file. */
     parse_arg(file_name, arg, &next_ptr);
     file = filesys_open (arg);
-    printf("%s\n", arg);
     if (file == NULL) 
     {
         printf ("load: %s: open failed\n", file_name);
