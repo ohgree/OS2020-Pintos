@@ -342,7 +342,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
     char** argv = malloc(sizeof(char*) * argc);
 
     strlcpy(cmd, file_name, MAX_COMMAND_LEN);
-    for(int i=0, token = strtok_r(cmd, WHITESPACE_CHARS, &next_ptr);
+    for(i=0, token = strtok_r(cmd, WHITESPACE_CHARS, &next_ptr);
             i < argc ;
             i++, token = strtok_r(NULL, WHITESPACE_CHARS, &next_ptr)) {
         argv[i] = token;
@@ -363,17 +363,17 @@ load (const char *file_name, void (**eip) (void), void **esp)
         *esp -= WORD_SIZE - (total_len % WORD_SIZE);
     }
     *esp -= WORD_SIZE; // null is inserted
-    **(uint32_t**)esp = NULL;
+    **(uint32_t**)esp = (uint32_t)NULL;
 
     // &argv[i] is inserted
     for(i = argc-1 ; i >= 0 ; i--) {
         *esp -= WORD_SIZE;
-        **(uint32_t**)esp = argv[i];
+        **(uint32_t**)esp = (uint32_t)argv[i];
     }
 
     // &argv[0] in stack is inserted
     *esp -= WORD_SIZE;
-    **(uint32_t**)esp = *esp + WORD_SIZE;
+    **(uint32_t**)esp = *(uint32_t*)esp + WORD_SIZE;
 
     // argc inserted
     *esp -= WORD_SIZE;
@@ -384,7 +384,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
     **(uint32_t**)esp = 0;
 
     // dump current stack
-    hex_dump(*esp, *esp, 100, 1);
+    hex_dump(*(uint32_t*)esp, *esp, 100, 1);
 
     free(argv);
 
