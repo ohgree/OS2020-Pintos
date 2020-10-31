@@ -20,6 +20,7 @@
 #include "threads/malloc.h"
 #include "lib/string.h"
 #include "lib/stdio.h"
+#include "threads/synch.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -45,6 +46,11 @@ process_execute (const char *file_name)
 
     /* Create a new thread to execute FILE_NAME. */
     parse_arg(file_name, cmd, &next_ptr);
+
+    // check for nonexisting file
+    if(!filesys_open(cmd))
+        return -1;
+
     tid = thread_create (cmd, PRI_DEFAULT, start_process, fn_copy);
     if (tid == TID_ERROR)
         palloc_free_page (fn_copy); 
@@ -108,9 +114,25 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
     int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid) 
 {
-    for(int i=0 ; i<1000000000 ; i++);
+    struct thread* t = NULL;
+    int exit_status;
+
+    for(
+            struct list_elem* e = list_begin(&(thread_current()->child));
+            e != list_end(&(thread_current()->child));
+            e = list_next(e)
+       ) {
+        t = list_entry(e, struct thread, child_elem);
+        if(child_tid == t->tid) {
+            sema_down(&(t->child_mutex));
+            exit_status = t->exit_status;
+            list_remove(&(t->child_elem));
+            sema_up(&(t->mem_mutex));
+            return exit_status;
+        }
+    }
     return -1;
 }
 
@@ -137,6 +159,8 @@ process_exit (void)
         pagedir_activate (NULL);
         pagedir_destroy (pd);
     }
+    sema_up(&(cur->child_mutex));
+    sema_down(&(cur->mem_mutex));
 }
 
 /* Sets up the CPU for running user code in the current

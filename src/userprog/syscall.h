@@ -3,8 +3,9 @@
 
 #include "lib/user/syscall.h"
 
-#define _ESP(x) *(uint32_t*)(f->esp+x)
 #define WORD_SIZE 4
+#define _ESP(x) (f->esp+x)
+#define ESP_WORD(x) (*(uint32_t*)_ESP(WORD_SIZE * x))
 
 void syscall_init (void);
 
@@ -21,6 +22,7 @@ int write(int fd, const void* buffer, unsigned size);
 void seek(int fd, unsigned position);
 unsigned tell(int fd);
 void close(int fd);
+void user_vaddr_check(const void* vaddr);
 
 
 #endif /* userprog/syscall.h */

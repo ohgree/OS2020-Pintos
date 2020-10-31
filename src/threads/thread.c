@@ -9,7 +9,6 @@
 #include "threads/intr-stubs.h"
 #include "threads/palloc.h"
 #include "threads/switch.h"
-#include "threads/synch.h"
 #include "threads/vaddr.h"
 #ifdef USERPROG
 #include "userprog/process.h"
@@ -467,6 +466,13 @@ init_thread (struct thread *t, const char *name, int priority)
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
+
+#ifdef USERPROG
+  sema_init(&(t->child_mutex), 0);
+  sema_init(&(t->mem_mutex), 0);
+  list_init(&(t->child));
+  list_push_back(&(running_thread()->child), &(t->child_elem));
+#endif
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
