@@ -34,6 +34,10 @@ void seek (int fd, unsigned position);
 unsigned tell (int fd);
 void close (int fd);
 
+// Additional system calls
+int max_of_four_int(int a, int b, int c, int d);
+int fibonacci(int num);
+
 /* Project 3 and optionally project 4. */
 mapid_t mmap (int fd, void *addr);
 void munmap (mapid_t);

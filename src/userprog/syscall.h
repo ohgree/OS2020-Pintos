@@ -24,5 +24,9 @@ unsigned tell(int fd);
 void close(int fd);
 void user_vaddr_check(const void* vaddr);
 
+// Additional system calls
+int max_of_four_int(int a, int b, int c, int d);
+int fibonacci(int num);
+
 
 #endif /* userprog/syscall.h */

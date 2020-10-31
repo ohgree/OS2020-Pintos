@@ -66,6 +66,18 @@ syscall_handler (struct intr_frame *f UNUSED)
             break;
         case SYS_CLOSE:     /* Close a file. */
             break;
+        // Additional system calls
+        case SYS_FIBONACCI:
+            f->eax = fibonacci(ESP_WORD(1));
+            break;
+        case SYS_MAX_OF_FOUR:
+            f->eax = max_of_four_int(
+                    ESP_WORD(1),
+                    ESP_WORD(2),
+                    ESP_WORD(3),
+                    ESP_WORD(4)
+                    );
+            break;
         default: break;
     }
 
@@ -116,4 +128,27 @@ void close(int fd);
 void user_vaddr_check(const void* vaddr) {
     if(!is_user_vaddr(vaddr))
         exit(-1);
+}
+
+int max_of_four_int(int a, int b, int c, int d) {
+    int max = a;
+    if(max < b)
+        max = b;
+    if(max < c)
+        max = c;
+    if(max < d)
+        max = d;
+
+    return max;
+}
+
+int fibonacci(int num) {
+    int prev = 0, next = 1, t;
+    for(int i=0 ; i < num ; i++) {
+        t = next;
+        next = prev + next;
+        prev = t;
+    }
+
+    return prev;
 }
