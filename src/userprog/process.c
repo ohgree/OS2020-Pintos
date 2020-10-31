@@ -33,6 +33,8 @@ process_execute (const char *file_name)
 {
     char *fn_copy;
     tid_t tid;
+    char cmd[MAX_ARG_LEN];
+    char* next_ptr;
 
     /* Make a copy of FILE_NAME.
        Otherwise there's a race between the caller and load(). */
@@ -42,7 +44,8 @@ process_execute (const char *file_name)
     strlcpy (fn_copy, file_name, PGSIZE);
 
     /* Create a new thread to execute FILE_NAME. */
-    tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+    parse_arg(file_name, cmd, &next_ptr);
+    tid = thread_create (cmd, PRI_DEFAULT, start_process, fn_copy);
     if (tid == TID_ERROR)
         palloc_free_page (fn_copy); 
     return tid;
@@ -107,6 +110,7 @@ start_process (void *file_name_)
     int
 process_wait (tid_t child_tid UNUSED) 
 {
+    for(int i=0 ; i<1000000000 ; i++);
     return -1;
 }
 
@@ -382,7 +386,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
     **(uint32_t**)esp = 0;
 
     // dump current stack
-    hex_dump(*(uint32_t*)esp, *esp, 100, 1);
+    /*hex_dump(*(uint32_t*)esp, *esp, 100, 1);*/
 
     free(argv);
 

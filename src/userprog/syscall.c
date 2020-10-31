@@ -9,18 +9,6 @@
 
 static void syscall_handler (struct intr_frame *);
 
-void halt(void) {
-    shutdown_power_off();
-}
-void exit(int status) {
-    thread_exit();
-}
-pid_t exec(const char* cmd_line) {
-    return process_execute(cmd_line);
-}
-int wait(pid_t pid) {
-    return process_wait(pid);
-}
 bool create(const char* file, unsigned initial_size);
 bool remove(const char* file);
 int open(const char* file);
@@ -98,4 +86,17 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
 
     /*thread_exit ();*/
+}
+void halt(void) {
+    shutdown_power_off();
+}
+void exit(int status) {
+    printf("%s: exit(%d)\n", thread_name(), status);
+    thread_exit();
+}
+pid_t exec(const char* cmd_line) {
+    return process_execute(cmd_line);
+}
+int wait(pid_t pid) {
+    return process_wait(pid);
 }
