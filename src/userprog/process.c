@@ -19,6 +19,7 @@
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
 #include "lib/string.h"
+#include "lib/stdio.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -328,8 +329,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
     if (!setup_stack (esp))
         goto done;
 
-    printf("initial esp: %x", *esp);
-
     // get argc
     int argc = 0;
     char cmd[MAX_COMMAND_LEN];
@@ -340,7 +339,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
         argc++;
         token = strtok_r(NULL, WHITESPACE_CHARS, &next_ptr);
     }
-    printf("argc: %d\n", argc);
     char** argv = malloc(sizeof(char*) * argc);
 
     strlcpy(cmd, file_name, MAX_COMMAND_LEN);
@@ -348,9 +346,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
             i < argc ;
             i++, token = strtok_r(NULL, WHITESPACE_CHARS, &next_ptr)) {
         argv[i] = token;
-        printf("argv[i]: %s at %x,\n", argv[i], argv+i);
     }
-    printf("argv: %x\n", argv);
 
     int len, total_len = 0;
     for(i = argc-1 ; i >= 0 ; i--) {
@@ -359,41 +355,36 @@ load (const char *file_name, void (**eip) (void), void **esp)
         total_len += len+1;
         strlcpy(*esp, argv[i], len+1);
         // restate argv to stack address
-        argv[i] = *(char*)esp;
-    printf("stack push:%x\n", argv[i]);
+        argv[i] = *esp;
     }
 
     // word align
-    printf("prev esp: %x\n", *esp);
     if(total_len % WORD_SIZE) {
         *esp -= WORD_SIZE - (total_len % WORD_SIZE);
     }
-    printf("next esp: %x\n", *esp);
     *esp -= WORD_SIZE; // null is inserted
     **(uint32_t**)esp = NULL;
-    printf("null insert esp: %x\n", *esp);
 
     // &argv[i] is inserted
     for(i = argc-1 ; i >= 0 ; i--) {
         *esp -= WORD_SIZE;
         **(uint32_t**)esp = argv[i];
     }
-    printf("&argv[i] insert esp: %x\n", *esp);
 
-    // &argv is inserted
+    // &argv[0] in stack is inserted
     *esp -= WORD_SIZE;
-    **(uint32_t**)esp = argv[i];
-    printf("&argv insert esp: %x\n", *esp);
+    **(uint32_t**)esp = *esp + WORD_SIZE;
 
     // argc inserted
     *esp -= WORD_SIZE;
     **(uint32_t**)esp = argc;
-    printf("&argc insert esp: %x(%d)\n", *esp, **(uint32_t**)esp);
     
     // retaddr inserted
     *esp -= WORD_SIZE;
     **(uint32_t**)esp = 0;
-    printf("return insert esp: %x(%d)\n", *esp, **(uint32_t**)esp);
+
+    // dump current stack
+    hex_dump(*esp, *esp, 100, 1);
 
     free(argv);
 
