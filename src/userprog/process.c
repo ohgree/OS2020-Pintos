@@ -4,7 +4,7 @@
 #include <round.h>
 #include <stdio.h>
 #include <stdlib.h>
-/*#include <string.h>*/
+#include <string.h>
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
 #include "userprog/tss.h"
