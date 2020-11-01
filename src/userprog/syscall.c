@@ -11,15 +11,11 @@
 
 static void syscall_handler (struct intr_frame *);
 
-    void
-syscall_init (void) 
-{
+void syscall_init (void) {
     intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
-    static void
-syscall_handler (struct intr_frame *f UNUSED) 
-{
+static void syscall_handler (struct intr_frame *f UNUSED) {
     switch(ESP_WORD(0)) {
         case SYS_HALT:      /* Halt the operating system. */
             halt();
@@ -51,14 +47,14 @@ syscall_handler (struct intr_frame *f UNUSED)
                     (int)ESP_WORD(1),
                     (void*)ESP_WORD(2),
                     (unsigned int)ESP_WORD(3)
-                );
+                    );
             break;
         case SYS_WRITE:     /* Write to a file. */
             f->eax = write(
                     ESP_WORD(1),
                     (void*)ESP_WORD(2),
                     (unsigned int)ESP_WORD(3)
-                 );
+                    );
             break;
         case SYS_SEEK:      /* Change position in a file. */
             break;
@@ -66,7 +62,7 @@ syscall_handler (struct intr_frame *f UNUSED)
             break;
         case SYS_CLOSE:     /* Close a file. */
             break;
-        // Additional system calls
+            // Additional system calls
         case SYS_FIBONACCI:
             f->eax = fibonacci(ESP_WORD(1));
             break;

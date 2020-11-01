@@ -29,9 +29,7 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
    thread id, or TID_ERROR if the thread cannot be created. */
-    tid_t
-process_execute (const char *file_name) 
-{
+tid_t process_execute (const char *file_name) {
     char *fn_copy;
     tid_t tid;
     char cmd[MAX_ARG_LEN];
@@ -75,9 +73,7 @@ void parse_arg(const char* src, char* dest, char** next_ptr) {
 
 /* A thread function that loads a user process and starts it
    running. */
-    static void
-start_process (void *file_name_)
-{
+static void start_process (void *file_name_) {
     char *file_name = file_name_;
     struct intr_frame if_;
     bool success;
@@ -113,9 +109,7 @@ start_process (void *file_name_)
 
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
-    int
-process_wait (tid_t child_tid) 
-{
+int process_wait (tid_t child_tid) {
     struct thread* t = NULL;
     int exit_status;
 
@@ -137,9 +131,7 @@ process_wait (tid_t child_tid)
 }
 
 /* Free the current process's resources. */
-    void
-process_exit (void)
-{
+void process_exit (void) {
     struct thread *cur = thread_current ();
     uint32_t *pd;
 
@@ -166,9 +158,7 @@ process_exit (void)
 /* Sets up the CPU for running user code in the current
    thread.
    This function is called on every context switch. */
-    void
-process_activate (void)
-{
+void process_activate (void) {
     struct thread *t = thread_current ();
 
     /* Activate thread's page tables. */
@@ -194,8 +184,7 @@ typedef uint16_t Elf32_Half;
 
 /* Executable header.  See [ELF1] 1-4 to 1-8.
    This appears at the very beginning of an ELF binary. */
-struct Elf32_Ehdr
-{
+struct Elf32_Ehdr {
     unsigned char e_ident[16];
     Elf32_Half    e_type;
     Elf32_Half    e_machine;
@@ -215,8 +204,7 @@ struct Elf32_Ehdr
 /* Program header.  See [ELF1] 2-2 to 2-4.
    There are e_phnum of these, starting at file offset e_phoff
    (see [ELF1] 1-6). */
-struct Elf32_Phdr
-{
+struct Elf32_Phdr {
     Elf32_Word p_type;
     Elf32_Off  p_offset;
     Elf32_Addr p_vaddr;
@@ -252,9 +240,7 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
    Stores the executable's entry point into *EIP
    and its initial stack pointer into *ESP.
    Returns true if successful, false otherwise. */
-    bool
-load (const char *file_name, void (**eip) (void), void **esp) 
-{
+bool load (const char *file_name, void (**eip) (void), void **esp) {
     struct thread *t = thread_current ();
     struct Elf32_Ehdr ehdr;
     struct file *file = NULL;
@@ -388,7 +374,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
     if(total_len % WORD_SIZE) {
         *esp -= WORD_SIZE - (total_len % WORD_SIZE);
     }
-    *esp -= WORD_SIZE; // null is inserted
+
+    // null is inserted
+    *esp -= WORD_SIZE; 
     **(uint32_t**)esp = (uint32_t)NULL;
 
     // &argv[i] is inserted
@@ -424,16 +412,15 @@ done:
     file_close (file);
     return success;
 }
-
+
 /* load() helpers. */
 
 static bool install_page (void *upage, void *kpage, bool writable);
 
 /* Checks whether PHDR describes a valid, loadable segment in
    FILE and returns true if so, false otherwise. */
-    static bool
-validate_segment (const struct Elf32_Phdr *phdr, struct file *file) 
-{
+static
+bool validate_segment (const struct Elf32_Phdr *phdr, struct file *file) {
     /* p_offset and p_vaddr must have the same page offset. */
     if ((phdr->p_offset & PGMASK) != (phdr->p_vaddr & PGMASK)) 
         return false; 
@@ -488,10 +475,9 @@ validate_segment (const struct Elf32_Phdr *phdr, struct file *file)
 
    Return true if successful, false if a memory allocation error
    or disk read error occurs. */
-    static bool
+static bool
 load_segment (struct file *file, off_t ofs, uint8_t *upage,
-        uint32_t read_bytes, uint32_t zero_bytes, bool writable) 
-{
+        uint32_t read_bytes, uint32_t zero_bytes, bool writable) {
     ASSERT ((read_bytes + zero_bytes) % PGSIZE == 0);
     ASSERT (pg_ofs (upage) == 0);
     ASSERT (ofs % PGSIZE == 0);
@@ -535,9 +521,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
-    static bool
-setup_stack (void **esp) 
-{
+static bool setup_stack (void **esp) {
     uint8_t *kpage;
     bool success = false;
 
@@ -562,9 +546,7 @@ setup_stack (void **esp)
    with palloc_get_page().
    Returns true on success, false if UPAGE is already mapped or
    if memory allocation fails. */
-    static bool
-install_page (void *upage, void *kpage, bool writable)
-{
+static bool install_page (void *upage, void *kpage, bool writable) {
     struct thread *t = thread_current ();
 
     /* Verify that there's not already a page at that virtual
