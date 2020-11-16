@@ -21,6 +21,7 @@
 #include "lib/string.h"
 #include "lib/stdio.h"
 #include "threads/synch.h"
+#include "userprog/syscall.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -50,8 +51,19 @@ tid_t process_execute (const char *file_name) {
         return -1;
 
     tid = thread_create (cmd, PRI_DEFAULT, start_process, fn_copy);
+    sema_down(&thread_current()->load_lock);
     if (tid == TID_ERROR)
         palloc_free_page (fn_copy); 
+
+    for(struct list_elem* e = list_begin(&thread_current()->child) ;
+            e != list_end(&thread_current()->child) ;
+            e = list_next(e)) {
+        struct thread* t = list_entry(e, struct thread, child_elem);
+        if(t->exit_status == -1) {
+            return process_wait(tid);
+        }
+    }
+
     return tid;
 }
 
@@ -87,8 +99,10 @@ static void start_process (void *file_name_) {
 
     /* If load failed, quit. */
     palloc_free_page (file_name);
+    sema_up(&thread_current()->parent->load_lock);
     if (!success) 
-        thread_exit ();
+        exit(-1);
+        /*thread_exit ();*/
 
     /* Start the user process by simulating a return from an
        interrupt, implemented by intr_exit (in

@@ -467,8 +467,10 @@ init_thread (struct thread *t, const char *name, int priority) {
     intr_set_level (old_level);
 
 #ifdef USERPROG
+    t->parent = running_thread();
     sema_init(&(t->child_mutex), 0);
     sema_init(&(t->mem_mutex), 0);
+    sema_init(&(t->load_lock), 0);
     list_init(&(t->child));
     list_push_back(&(running_thread()->child), &(t->child_elem));
     memset(t->fd, 0, sizeof(t->fd));

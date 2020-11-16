@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <syscall-nr.h>
 #include "lib/kernel/stdio.h"
+#include "lib/string.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
@@ -10,10 +11,20 @@
 #include "userprog/process.h"
 #include "filesys/filesys.h"
 #include "filesys/file.h"
+#include "threads/synch.h"
+
+struct file {
+    struct inode *inode;
+    off_t pos;
+    bool deny_write;
+};
+
+struct lock file_lock;
 
 static void syscall_handler (struct intr_frame *);
 
 void syscall_init (void) {
+    lock_init(&file_lock);
     intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
@@ -64,6 +75,9 @@ static void syscall_handler (struct intr_frame *f UNUSED) {
                     );
             break;
         case SYS_WRITE:     /* Write to a file. */
+            user_vaddr_check(_ESP(WORD_SIZE*1));
+            user_vaddr_check(_ESP(WORD_SIZE*2));
+            user_vaddr_check(_ESP(WORD_SIZE*3));
             f->eax = write(
                     ESP_WORD(1),
                     (void*)ESP_WORD(2),
@@ -97,8 +111,6 @@ static void syscall_handler (struct intr_frame *f UNUSED) {
             break;
         default: break;
     }
-
-    /*thread_exit ();*/
 }
 
 void halt(void) {
@@ -109,7 +121,7 @@ void exit(int status) {
     printf("%s: exit(%d)\n", thread_name(), status);
     thread_current()->exit_status = status;
 
-    for(int i = STDOUT_FILENO + 1 ; i < MAX_FD_SIZE ; i++) {
+    for(int i = STDOUT_FILENO + 2 ; i < MAX_FD_SIZE ; i++) {
         if(thread_current()->fd[i])
             close(i);
     }
@@ -125,68 +137,116 @@ int wait(pid_t pid) {
 }
 
 bool create(const char* file, unsigned initial_size) {
+    if(!file) exit(-1);
+    user_vaddr_check(file);
     return filesys_create(file, initial_size);
 }
 
 bool remove(const char* file) {
+    if(!file) exit(-1);
+    user_vaddr_check(file);
     return filesys_remove(file);
 }
 
 int open(const char* file) {
+    int ret = -1;
     struct file* fp;
 
+    if(!file) exit(-1);
+    user_vaddr_check(file);
+
+    lock_acquire(&file_lock);
+
     if((fp = filesys_open(file))) {
-        for(int i = STDOUT_FILENO + 1 ; i < MAX_FD_SIZE ; i++) {
+        for(int i = STDOUT_FILENO + 2 ; i < MAX_FD_SIZE ; i++) {
             if(!thread_current()->fd[i]) {
+                if(!strcmp(thread_current()->name, file)) {
+                    file_deny_write(fp);
+                }
                 thread_current()->fd[i] = fp;
-                return i;
+                ret = i;
+                break;
             }
         }
     }
 
-    return -1;
+    lock_release(&file_lock);
+
+    return ret;
 }
 
 int filesize(int fd) {
+    if(!thread_current()->fd[fd]) exit(-1);
     return file_length(thread_current()->fd[fd]);
 }
 
 int read(int fd, void* buffer, unsigned size) {
-    // stdin
     int i = 0;
-    if(fd == 0) {
+    if(!buffer) exit(-1);
+    user_vaddr_check(buffer);
+    lock_acquire(&file_lock);
+    // stdin
+    if(fd == STDIN_FILENO) {
         for(i = 0 ; i < (int)size ; i++) {
             //buffer read
             ((uint8_t*)buffer)[i] = input_getc();
-            if(((char*)buffer)[i] == '\n') break;
+            if(((char*)buffer)[i] == '\0')
+                break;
         }
+    } else if(fd > STDOUT_FILENO + 1) {
+        if(!thread_current()->fd[fd]) exit(-1);
+        i = file_read(thread_current()->fd[fd], buffer, size);
     }
+
+    lock_release(&file_lock);
+
     return i;
 }
 
 int write(int fd, const void* buffer, unsigned size) {
+    int ret = -1;
+    if(!buffer) exit(-1);
+    user_vaddr_check(buffer);
+    lock_acquire(&file_lock);
     // stdout
-    if(fd == 1) {
+    if(fd == STDOUT_FILENO) {
         putbuf(buffer, size);
-        return size; 
+        ret = size; 
+    } else if(fd > STDOUT_FILENO + 1) {
+        if(!thread_current()->fd[fd]) exit(-1);
+
+        if(thread_current()->fd[fd]->deny_write) {
+            file_deny_write(thread_current()->fd[fd]);
+        }
+        ret = file_write(thread_current()->fd[fd], buffer, size);
     }
-    return -1;
+
+    lock_release(&file_lock);
+    return ret;
 }
 
 void seek(int fd, unsigned position) {
+    if(!thread_current()->fd[fd]) exit(-1);
     file_seek(thread_current()->fd[fd], position);
 }
 
 unsigned tell(int fd) {
+    if(!thread_current()->fd[fd]) exit(-1);
     return file_tell(thread_current()->fd[fd]);
 }
 
 void close(int fd) {
-    return file_close(thread_current()->fd[fd]);
+    struct file* fp;
+    if(!thread_current()->fd[fd]) exit(-1);
+
+    fp = thread_current()->fd[fd];
+    thread_current()->fd[fd] = NULL;
+
+    return file_close(fp);
 }
 
 void user_vaddr_check(const void* vaddr) {
-    if(!is_user_vaddr(vaddr))
+    if(!is_user_vaddr(vaddr) || !vaddr)
         exit(-1);
 }
 

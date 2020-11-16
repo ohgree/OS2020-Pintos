@@ -104,7 +104,9 @@ struct thread
     struct list_elem child_elem;
     struct semaphore child_mutex;
     struct semaphore mem_mutex;
+    struct semaphore load_lock;
     struct file* fd[MAX_FD_SIZE];
+    struct thread* parent;
 #endif
 
     /* Owned by thread.c. */
