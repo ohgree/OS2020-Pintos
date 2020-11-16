@@ -65,6 +65,7 @@ static void syscall_handler (struct intr_frame *f UNUSED) {
             break;
         case SYS_OPEN:      /* Open a file. */
             user_vaddr_check(_ESP(WORD_SIZE*1));
+            /*printf("\n\nopen\n");*/
             f->eax = open((const char*)ESP_WORD(1));
             break;
         case SYS_FILESIZE:  /* Obtain a file's size. */
@@ -72,6 +73,7 @@ static void syscall_handler (struct intr_frame *f UNUSED) {
             f->eax = filesize((int)ESP_WORD(1));
             break;
         case SYS_READ:      /* Read from a file. */
+            /*printf("\n\nread\n");*/
             user_vaddr_check(_ESP(WORD_SIZE*1));
             user_vaddr_check(_ESP(WORD_SIZE*2));
             user_vaddr_check(_ESP(WORD_SIZE*3));
@@ -160,6 +162,8 @@ int open(const char* file) {
     int ret = -1;
     struct file* fp;
 
+    /*hex_dump(file, file, 100, 1);*/
+    /*printf("file addr: %x\n", file);*/
     user_vaddr_check(file);
     if(!file) exit(-1);
 
@@ -179,6 +183,7 @@ int open(const char* file) {
     }
 
     lock_release(&file_lock);
+    /*printf("return: %d\n", ret);*/
 
     return ret;
 }
@@ -190,12 +195,12 @@ int filesize(int fd) {
 
 int read(int fd, void* buffer, unsigned size) {
     int i = 0;
-    user_vaddr_check(buffer);
+    
+    /*printf("buffer addr: %x\n", buffer);*/
+    if(!is_user_vaddr(buffer)) exit(-1);
     if(!buffer){
-        /*printf("NULL buffer!\n");*/
         exit(-1);
     }
-    /*printf("\nBuffer addr: %x\n\n", buffer);*/
     lock_acquire(&file_lock);
     // stdin
     if(fd == STDIN_FILENO) {
@@ -216,7 +221,6 @@ int read(int fd, void* buffer, unsigned size) {
 }
 
 int write(int fd, const void* buffer, unsigned size) {
-    /*printf("written\n");*/
     int ret = -1;
     user_vaddr_check(buffer);
     if(!buffer) exit(-1);
