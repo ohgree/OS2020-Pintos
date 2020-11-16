@@ -412,6 +412,7 @@ bool load (const char *file_name, void (**eip) (void), void **esp) {
     **(uint32_t**)esp = 0;
 
     // dump current stack
+    /*printf("DUMP:\n");*/
     /*hex_dump(*(uint32_t*)esp, *esp, 100, 1);*/
 
     free(argv);

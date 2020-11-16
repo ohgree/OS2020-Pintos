@@ -29,12 +29,18 @@ void syscall_init (void) {
 }
 
 static void syscall_handler (struct intr_frame *f UNUSED) {
+    /*hex_dump(f->esp, f->esp, 100, 1);*/
     switch(ESP_WORD(0)) {
         case SYS_HALT:      /* Halt the operating system. */
             halt();
             break;
         case SYS_EXIT:      /* Terminate this process. */
-            user_vaddr_check(_ESP(WORD_SIZE*1));
+            /*user_vaddr_check(_ESP(WORD_SIZE*1));*/
+            /*printf("%x < %x ?\n", _ESP(WORD_SIZE*1), PHYS_BASE);*/
+            /*printf(": %s\n", is_user_vaddr(_ESP(WORD_SIZE*1)) ? "true" : "false");*/
+            if(!is_user_vaddr(_ESP(WORD_SIZE*1))) {
+                exit(-1);
+            }
             exit(ESP_WORD(1));
             break;
         case SYS_EXEC:      /* Start another process. */
@@ -42,6 +48,7 @@ static void syscall_handler (struct intr_frame *f UNUSED) {
             f->eax = exec((const char*)ESP_WORD(1));
             break;
         case SYS_WAIT:      /* Wait for a child process to die. */
+            user_vaddr_check(_ESP(WORD_SIZE*1));
             f->eax = wait((pid_t)ESP_WORD(1));
             break;
         case SYS_CREATE:    /* Create a file. */
@@ -129,6 +136,7 @@ void exit(int status) {
 }
 
 pid_t exec(const char* cmd_line) {
+    user_vaddr_check(cmd_line);
     return process_execute(cmd_line);
 }
 
@@ -137,14 +145,14 @@ int wait(pid_t pid) {
 }
 
 bool create(const char* file, unsigned initial_size) {
-    if(!file) exit(-1);
     user_vaddr_check(file);
+    if(!file) exit(-1);
     return filesys_create(file, initial_size);
 }
 
 bool remove(const char* file) {
-    if(!file) exit(-1);
     user_vaddr_check(file);
+    if(!file) exit(-1);
     return filesys_remove(file);
 }
 
@@ -152,8 +160,8 @@ int open(const char* file) {
     int ret = -1;
     struct file* fp;
 
-    if(!file) exit(-1);
     user_vaddr_check(file);
+    if(!file) exit(-1);
 
     lock_acquire(&file_lock);
 
@@ -182,8 +190,12 @@ int filesize(int fd) {
 
 int read(int fd, void* buffer, unsigned size) {
     int i = 0;
-    if(!buffer) exit(-1);
     user_vaddr_check(buffer);
+    if(!buffer){
+        /*printf("NULL buffer!\n");*/
+        exit(-1);
+    }
+    /*printf("\nBuffer addr: %x\n\n", buffer);*/
     lock_acquire(&file_lock);
     // stdin
     if(fd == STDIN_FILENO) {
@@ -204,9 +216,11 @@ int read(int fd, void* buffer, unsigned size) {
 }
 
 int write(int fd, const void* buffer, unsigned size) {
+    /*printf("written\n");*/
     int ret = -1;
-    if(!buffer) exit(-1);
     user_vaddr_check(buffer);
+    if(!buffer) exit(-1);
+
     lock_acquire(&file_lock);
     // stdout
     if(fd == STDOUT_FILENO) {
@@ -246,8 +260,9 @@ void close(int fd) {
 }
 
 void user_vaddr_check(const void* vaddr) {
-    if(!is_user_vaddr(vaddr) || !vaddr)
+    if(!is_user_vaddr((unsigned)vaddr)) {
         exit(-1);
+    }
 }
 
 int max_of_four_int(int a, int b, int c, int d) {
