@@ -29,15 +29,11 @@ void syscall_init (void) {
 }
 
 static void syscall_handler (struct intr_frame *f UNUSED) {
-    /*hex_dump(f->esp, f->esp, 100, 1);*/
     switch(ESP_WORD(0)) {
         case SYS_HALT:      /* Halt the operating system. */
             halt();
             break;
         case SYS_EXIT:      /* Terminate this process. */
-            /*user_vaddr_check(_ESP(WORD_SIZE*1));*/
-            /*printf("%x < %x ?\n", _ESP(WORD_SIZE*1), PHYS_BASE);*/
-            /*printf(": %s\n", is_user_vaddr(_ESP(WORD_SIZE*1)) ? "true" : "false");*/
             if(!is_user_vaddr(_ESP(WORD_SIZE*1))) {
                 exit(-1);
             }
@@ -65,7 +61,6 @@ static void syscall_handler (struct intr_frame *f UNUSED) {
             break;
         case SYS_OPEN:      /* Open a file. */
             user_vaddr_check(_ESP(WORD_SIZE*1));
-            /*printf("\n\nopen\n");*/
             f->eax = open((const char*)ESP_WORD(1));
             break;
         case SYS_FILESIZE:  /* Obtain a file's size. */
@@ -73,7 +68,6 @@ static void syscall_handler (struct intr_frame *f UNUSED) {
             f->eax = filesize((int)ESP_WORD(1));
             break;
         case SYS_READ:      /* Read from a file. */
-            /*printf("\n\nread\n");*/
             user_vaddr_check(_ESP(WORD_SIZE*1));
             user_vaddr_check(_ESP(WORD_SIZE*2));
             user_vaddr_check(_ESP(WORD_SIZE*3));
@@ -162,8 +156,6 @@ int open(const char* file) {
     int ret = -1;
     struct file* fp;
 
-    /*hex_dump(file, file, 100, 1);*/
-    /*printf("file addr: %x\n", file);*/
     user_vaddr_check(file);
     if(!file) exit(-1);
 
@@ -183,7 +175,6 @@ int open(const char* file) {
     }
 
     lock_release(&file_lock);
-    /*printf("return: %d\n", ret);*/
 
     return ret;
 }
@@ -196,7 +187,6 @@ int filesize(int fd) {
 int read(int fd, void* buffer, unsigned size) {
     int i = 0;
     
-    /*printf("buffer addr: %x\n", buffer);*/
     if(!is_user_vaddr(buffer)) exit(-1);
     if(!buffer){
         exit(-1);
