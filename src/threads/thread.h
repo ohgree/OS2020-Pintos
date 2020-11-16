@@ -81,6 +81,7 @@ typedef int tid_t;
    only because they are mutually exclusive: only a thread in the
    ready state is on the run queue, whereas only a thread in the
    blocked state is on a semaphore wait list. */
+#define MAX_FD_SIZE 128
 struct thread
   {
     /* Owned by thread.c. */
@@ -103,6 +104,7 @@ struct thread
     struct list_elem child_elem;
     struct semaphore child_mutex;
     struct semaphore mem_mutex;
+    struct file* fd[MAX_FD_SIZE];
 #endif
 
     /* Owned by thread.c. */

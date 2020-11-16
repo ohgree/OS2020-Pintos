@@ -8,6 +8,8 @@
 #include "devices/shutdown.h"
 #include "devices/input.h"
 #include "userprog/process.h"
+#include "filesys/filesys.h"
+#include "filesys/file.h"
 
 static void syscall_handler (struct intr_frame *);
 
@@ -32,17 +34,29 @@ static void syscall_handler (struct intr_frame *f UNUSED) {
             f->eax = wait((pid_t)ESP_WORD(1));
             break;
         case SYS_CREATE:    /* Create a file. */
+            user_vaddr_check(_ESP(WORD_SIZE*1));
+            user_vaddr_check(_ESP(WORD_SIZE*2));
+            f->eax = create(
+                    (const char*)ESP_WORD(1),
+                    (unsigned int)ESP_WORD(2)
+                    );
             break;
         case SYS_REMOVE:    /* Delete a file. */
+            user_vaddr_check(_ESP(WORD_SIZE*1));
+            f->eax = remove((const char*)ESP_WORD(1));
             break;
         case SYS_OPEN:      /* Open a file. */
+            user_vaddr_check(_ESP(WORD_SIZE*1));
+            f->eax = open((const char*)ESP_WORD(1));
             break;
         case SYS_FILESIZE:  /* Obtain a file's size. */
+            user_vaddr_check(_ESP(WORD_SIZE*1));
+            f->eax = filesize((int)ESP_WORD(1));
             break;
         case SYS_READ:      /* Read from a file. */
-            user_vaddr_check(_ESP(1));
-            user_vaddr_check(_ESP(2));
-            user_vaddr_check(_ESP(3));
+            user_vaddr_check(_ESP(WORD_SIZE*1));
+            user_vaddr_check(_ESP(WORD_SIZE*2));
+            user_vaddr_check(_ESP(WORD_SIZE*3));
             f->eax = read(
                     (int)ESP_WORD(1),
                     (void*)ESP_WORD(2),
@@ -57,10 +71,17 @@ static void syscall_handler (struct intr_frame *f UNUSED) {
                     );
             break;
         case SYS_SEEK:      /* Change position in a file. */
+            user_vaddr_check(_ESP(WORD_SIZE*1));
+            user_vaddr_check(_ESP(WORD_SIZE*2));
+            seek((int)ESP_WORD(1), (unsigned int)ESP_WORD(2));
             break;
         case SYS_TELL:      /* Report current position in a file. */
+            user_vaddr_check(_ESP(WORD_SIZE*1));
+            f->eax = tell((int)ESP_WORD(1));
             break;
         case SYS_CLOSE:     /* Close a file. */
+            user_vaddr_check(_ESP(WORD_SIZE*1));
+            close((int)ESP_WORD(1));
             break;
             // Additional system calls
         case SYS_FIBONACCI:
@@ -79,24 +100,57 @@ static void syscall_handler (struct intr_frame *f UNUSED) {
 
     /*thread_exit ();*/
 }
+
 void halt(void) {
     shutdown_power_off();
 }
+
 void exit(int status) {
     printf("%s: exit(%d)\n", thread_name(), status);
     thread_current()->exit_status = status;
+
+    for(int i = STDOUT_FILENO + 1 ; i < MAX_FD_SIZE ; i++) {
+        if(thread_current()->fd[i])
+            close(i);
+    }
     thread_exit();
 }
+
 pid_t exec(const char* cmd_line) {
     return process_execute(cmd_line);
 }
+
 int wait(pid_t pid) {
     return process_wait(pid);
 }
-bool create(const char* file, unsigned initial_size);
-bool remove(const char* file);
-int open(const char* file);
-int filesize(int fd);
+
+bool create(const char* file, unsigned initial_size) {
+    return filesys_create(file, initial_size);
+}
+
+bool remove(const char* file) {
+    return filesys_remove(file);
+}
+
+int open(const char* file) {
+    struct file* fp;
+
+    if((fp = filesys_open(file))) {
+        for(int i = STDOUT_FILENO + 1 ; i < MAX_FD_SIZE ; i++) {
+            if(!thread_current()->fd[i]) {
+                thread_current()->fd[i] = fp;
+                return i;
+            }
+        }
+    }
+
+    return -1;
+}
+
+int filesize(int fd) {
+    return file_length(thread_current()->fd[fd]);
+}
+
 int read(int fd, void* buffer, unsigned size) {
     // stdin
     int i = 0;
@@ -109,6 +163,7 @@ int read(int fd, void* buffer, unsigned size) {
     }
     return i;
 }
+
 int write(int fd, const void* buffer, unsigned size) {
     // stdout
     if(fd == 1) {
@@ -117,9 +172,18 @@ int write(int fd, const void* buffer, unsigned size) {
     }
     return -1;
 }
-void seek(int fd, unsigned position);
-unsigned tell(int fd);
-void close(int fd);
+
+void seek(int fd, unsigned position) {
+    file_seek(thread_current()->fd[fd], position);
+}
+
+unsigned tell(int fd) {
+    return file_tell(thread_current()->fd[fd]);
+}
+
+void close(int fd) {
+    return file_close(thread_current()->fd[fd]);
+}
 
 void user_vaddr_check(const void* vaddr) {
     if(!is_user_vaddr(vaddr))
