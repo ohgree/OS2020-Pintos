@@ -4,7 +4,13 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
-#include <threads/synch.h>
+#include "threads/synch.h"
+#include "threads/float_arith.h"
+
+#ifndef USERPROG
+/* Project #3. */
+extern bool thread_prior_aging;
+#endif
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -96,6 +102,8 @@ struct thread
     struct list_elem elem;              /* List element. */
 
     int64_t wakeup_counter;
+    int recent_cpu;
+    int nice;
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
@@ -149,5 +157,10 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+void thread_aging(void);
+int get_max_priority(void);
+void update_load_avg_recent_cpu(void);
+void update_priority(void);
 
 #endif /* threads/thread.h */

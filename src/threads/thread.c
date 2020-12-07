@@ -10,6 +10,7 @@
 #include "threads/palloc.h"
 #include "threads/switch.h"
 #include "threads/vaddr.h"
+#include "threads/float_arith.c"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -53,6 +54,13 @@ static long long user_ticks;    /* # of timer ticks in user programs. */
 #define TIME_SLICE 4            /* # of timer ticks to give each thread. */
 static unsigned thread_ticks;   /* # of timer ticks since last yield. */
 
+#ifndef USERPROG
+/* Project #3. */
+bool thread_prior_aging;
+#endif
+
+static int load_avg;
+
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
@@ -91,6 +99,7 @@ thread_init (void)
 {
     ASSERT (intr_get_level () == INTR_OFF);
 
+    load_avg = 0;
     lock_init (&tid_lock);
     list_init (&ready_list);
     list_init (&all_list);
@@ -100,6 +109,8 @@ thread_init (void)
     init_thread (initial_thread, "main", PRI_DEFAULT);
     initial_thread->status = THREAD_RUNNING;
     initial_thread->tid = allocate_tid ();
+    initial_thread->nice = 0;
+    initial_thread->recent_cpu = 0;
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -139,6 +150,11 @@ thread_tick (void)
     /* Enforce preemption. */
     if (++thread_ticks >= TIME_SLICE)
         intr_yield_on_return ();
+
+#ifndef USERPROG
+    if(thread_prior_aging == true)
+        thread_aging();
+#endif
 }
 
 /* Prints thread statistics. */
@@ -372,26 +388,21 @@ thread_set_nice (int nice UNUSED)
     int
 thread_get_nice (void) 
 {
-    /* Not yet implemented. */
-    return 0;
+    return thread_current()->nice;
 }
 
 /* Returns 100 times the system load average. */
     int
-thread_get_load_avg (void) 
-{
-    /* Not yet implemented. */
-    return 0;
+thread_get_load_avg (void) {
+    return i_mul_f(100, load_avg) / FRACTION;
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
     int
-thread_get_recent_cpu (void) 
-{
-    /* Not yet implemented. */
-    return 0;
+thread_get_recent_cpu (void) {
+    return i_mul_f(100, thread_current()->recent_cpu) / FRACTION;
 }
-
+
 /* Idle thread.  Executes when no other thread is ready to run.
 
    The idle thread is initially put on the ready list by
@@ -481,6 +492,8 @@ init_thread (struct thread *t, const char *name, int priority) {
 
     old_level = intr_disable ();
     list_push_back (&all_list, &t->allelem);
+    t->recent_cpu = running_thread()->recent_cpu;
+    t->nice = running_thread()->nice;
     intr_set_level (old_level);
 
 #ifdef USERPROG
@@ -607,3 +620,60 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+int get_max_priority(void) {
+    int priority = -1;
+    if(!list_empty(&ready_list)) {
+        priority = list_entry(list_front(&ready_list), struct thread, elem)->priority;
+    }
+
+    return priority;
+}
+
+void update_load_avg_recent_cpu(void) {
+    int ready_threads_num = list_size(&ready_list);
+
+    if(thread_current() != idle_thread)
+        ready_threads_num++;
+
+    load_avg = f_div_i(f_add_i(i_mul_f(59, load_avg), ready_threads_num), 60);
+
+    for(struct list_elem* e = list_begin(&all_list);
+            e != list_end(&all_list);
+            e = list_next(e)) {
+        struct thread* t = list_entry(e, struct thread, allelem);
+        if(idle_thread != t) {
+            t->recent_cpu = f_add_i(
+                    f_mul_f(
+                        f_div_f(
+                            i_mul_f(2, load_avg),
+                            f_add_i(i_mul_f(2, load_avg), 1)
+                            ), t->recent_cpu
+                        ), t->nice);
+        }
+    }
+}
+
+void update_priority(void) {
+    struct thread* t;
+    for(struct list_elem* e = list_begin(&all_list);
+            e != list_end(&all_list);
+            e = list_next(e)) {
+        t = list_entry(e, struct thread, allelem);
+        t->priority = f_sub_f(
+                f_sub_f(f_add_i(0, PRI_MAX), f_div_i(t->recent_cpu, 4)),
+                i_mul_f(2, f_add_i(0, t->nice))
+                ) / FRACTION;
+
+        if (t->priority > PRI_MAX) t->priority = PRI_MAX;
+        if (t->priority < PRI_MIN) t->priority = PRI_MIN;
+    }
+
+    if(thread_current()->priority < get_max_priority()) {
+        intr_yield_on_return();
+    }
+}
+
+void thread_aging() {
+
+}

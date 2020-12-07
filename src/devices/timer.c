@@ -174,7 +174,9 @@ timer_print_stats (void)
 {
   printf ("Timer: %"PRId64" ticks\n", timer_ticks ());
 }
-
+
+
+#define PRIORITY_RECALC_FREQ 4
 /* Timer interrupt handler. */
 static void
 timer_interrupt (struct intr_frame *args UNUSED) {
@@ -182,10 +184,9 @@ timer_interrupt (struct intr_frame *args UNUSED) {
 
     ticks++;
 
-    for(
-            struct list_elem* e = list_begin(&sleeping_list);
-            e != list_end(&sleeping_list);
-       ) {
+    struct list_elem* e = list_begin(&sleeping_list);
+
+    while(e != list_end(&sleeping_list)) {
         t = list_entry(e, struct thread, elem);
 
         if (ticks < t->wakeup_counter) {
@@ -194,6 +195,16 @@ timer_interrupt (struct intr_frame *args UNUSED) {
             e = list_remove(e);
             thread_unblock(t);
         }
+    }
+
+    //aging conditions
+    if(thread_prior_aging) {
+        thread_current()->recent_cpu = f_add_i(thread_current()->recent_cpu, 1);
+
+        if(!(timer_ticks()%TIMER_FREQ))
+            update_load_avg_recent_cpu();
+        if(!(timer_ticks()%PRIORITY_RECALC_FREQ))
+            update_priority();
     }
     thread_tick ();
 }
