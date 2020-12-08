@@ -175,8 +175,6 @@ timer_print_stats (void)
   printf ("Timer: %"PRId64" ticks\n", timer_ticks ());
 }
 
-
-#define PRIORITY_RECALC_FREQ 4
 /* Timer interrupt handler. */
 static void
 timer_interrupt (struct intr_frame *args UNUSED) {
@@ -198,7 +196,7 @@ timer_interrupt (struct intr_frame *args UNUSED) {
     }
 
     //aging conditions
-    if(thread_prior_aging) {
+    if(thread_prior_aging || thread_mlfqs) {
         thread_current()->recent_cpu = f_add_i(thread_current()->recent_cpu, 1);
 
         if(!(timer_ticks()%TIMER_FREQ))

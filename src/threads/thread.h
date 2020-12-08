@@ -7,10 +7,10 @@
 #include "threads/synch.h"
 #include "threads/float_arith.h"
 
-#ifndef USERPROG
+//#ifndef USERPROG
 /* Project #3. */
 extern bool thread_prior_aging;
-#endif
+//#endif
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -88,6 +88,7 @@ typedef int tid_t;
    ready state is on the run queue, whereas only a thread in the
    blocked state is on a semaphore wait list. */
 #define MAX_FD_SIZE 128
+#define PRIORITY_RECALC_FREQ 4
 struct thread
   {
     /* Owned by thread.c. */

@@ -362,9 +362,11 @@ thread_foreach (thread_action_func *func, void *aux)
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
     void
-thread_set_priority (int new_priority) 
-{
+thread_set_priority (int new_priority) {
+    if(thread_mlfqs) return;
+
     int prev = thread_current()->priority;
+
     thread_current ()->priority = new_priority;
     if(new_priority < prev)
         thread_yield();
@@ -372,22 +374,34 @@ thread_set_priority (int new_priority)
 
 /* Returns the current thread's priority. */
     int
-thread_get_priority (void) 
-{
+thread_get_priority (void) {
     return thread_current ()->priority;
 }
 
 /* Sets the current thread's nice value to NICE. */
     void
-thread_set_nice (int nice UNUSED) 
-{
-    /* Not yet implemented. */
+thread_set_nice (int nice UNUSED) {
+    struct thread* t = thread_current();
+
+    t->nice = nice;
+    t->priority = f_sub_f(
+            f_sub_f(
+                f_add_i(0, PRI_MAX),
+                f_div_i(t->recent_cpu, 4)
+                ), 
+            i_mul_f(2, f_add_i(0, t->nice))
+            ) / FRACTION;
+
+    if(t->priority < PRI_MIN) t->priority = PRI_MIN;
+    if(t->priority > PRI_MAX) t->priority = PRI_MAX;
+
+    if(t->priority < get_max_priority())
+        thread_yield();
 }
 
 /* Returns the current thread's nice value. */
     int
-thread_get_nice (void) 
-{
+thread_get_nice (void) {
     return thread_current()->nice;
 }
 
