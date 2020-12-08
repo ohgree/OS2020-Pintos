@@ -151,10 +151,10 @@ thread_tick (void)
     if (++thread_ticks >= TIME_SLICE)
         intr_yield_on_return ();
 
-#ifndef USERPROG
-    if(thread_prior_aging == true)
-        thread_aging();
-#endif
+/*#ifndef USERPROG*/
+    /*if(thread_prior_aging == true)*/
+        /*thread_aging();*/
+/*#endif*/
 }
 
 /* Prints thread statistics. */
@@ -506,9 +506,10 @@ init_thread (struct thread *t, const char *name, int priority) {
 
     old_level = intr_disable ();
     list_push_back (&all_list, &t->allelem);
+    intr_set_level (old_level);
+
     t->recent_cpu = running_thread()->recent_cpu;
     t->nice = running_thread()->nice;
-    intr_set_level (old_level);
 
 #ifdef USERPROG
     t->parent = running_thread();
@@ -645,6 +646,7 @@ int get_max_priority(void) {
 }
 
 void update_load_avg_recent_cpu(void) {
+    struct thread* t;
     int ready_threads_num = list_size(&ready_list);
 
     if(thread_current() != idle_thread)
@@ -655,7 +657,7 @@ void update_load_avg_recent_cpu(void) {
     for(struct list_elem* e = list_begin(&all_list);
             e != list_end(&all_list);
             e = list_next(e)) {
-        struct thread* t = list_entry(e, struct thread, allelem);
+        t = list_entry(e, struct thread, allelem);
         if(idle_thread != t) {
             t->recent_cpu = f_add_i(
                     f_mul_f(
@@ -688,6 +690,3 @@ void update_priority(void) {
     }
 }
 
-void thread_aging() {
-
-}

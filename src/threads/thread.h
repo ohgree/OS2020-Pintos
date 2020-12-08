@@ -159,7 +159,6 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
-void thread_aging(void);
 int get_max_priority(void);
 void update_load_avg_recent_cpu(void);
 void update_priority(void);
